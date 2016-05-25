@@ -1,0 +1,180 @@
+#!/usr/bin/make -f
+
+include /usr/share/dpkg/architecture.mk
+include /usr/share/dpkg/pkg-info.mk
+
+CONFOPTS += --enable-line
+CONFOPTS += --libdir=/lib/$(DEB_HOST_MULTIARCH)
+CONFOPTS += --libexecdir=\$${prefix}/lib/$(DEB_HOST_MULTIARCH)
+
+ifeq ($(DEB_HOST_ARCH_OS),linux)
+CONFOPTS += --enable-raw
+CONFOPTS += --with-selinux
+CONFOPTS += --enable-partx
+ifneq ($(filter stage1,$(DEB_BUILD_PROFILES)),)
+	CONFOPTS += --without-systemd --without-udev
+else
+	CONFOPTS += --with-systemd --with-udev
+endif
+CONFOPTS += --enable-tunelp
+endif
+
+# build static versions of programs used in fdisk-udeb and util-linux-udeb
+CONFOPTS += --enable-static-programs=fdisk,sfdisk,blkid
+
+CONFOPTS += --localstatedir=/run
+CONFOPTS += --disable-silent-rules
+CONFOPTS += --without-python
+
+# never use /etc/mtab, it should be a link to /proc/mounts
+# but in case it isn't - just don't use it, go straight for
+# /proc/self/mountinfo or /proc/mounts.
+CONFOPTS += --enable-libmount-force-mountinfo
+
+# disable utilities shipped by other packages
+# => login
+CONFOPTS += --disable-login
+CONFOPTS += --disable-nologin
+CONFOPTS += --disable-su
+# => procps
+CONFOPTS += --disable-kill
+# => eject
+CONFOPTS += --disable-eject
+# => passwd
+CONFOPTS += --disable-chfn-chsh
+
+ifeq ($(DEB_BUILD_GNU_TYPE),$(DEB_HOST_GNU_TYPE))
+	CROSS :=
+else
+	CROSS := CC="$(DEB_HOST_GNU_TYPE)-gcc -std=gnu99"
+endif
+
+%:
+	dh $@ --with autoreconf,systemd
+
+override_dh_autoreconf:
+	AM_OPTS=--copy LT_OPTS=--copy dh_autoreconf ./autogen.sh
+
+override_dh_auto_configure:
+	dh_auto_configure -- $(CONFOPTS) $(CROSS)
+
+override_dh_auto_build:
+	dh_auto_build -- $(CROSS)
+
+override_dh_auto_install:
+	dh_auto_install
+ifneq ($(filter stage1,$(DEB_BUILD_PROFILES)),)
+	# Manually generate and install units to avoid missing files when
+        # util-linux.install gets executed in stage1 builds.
+	install -d debian/tmp/lib/systemd/system
+	make PATHFILES=sys-utils/fstrim.service sys-utils/fstrim.service
+	install -m644 sys-utils/fstrim.service debian/tmp/lib/systemd/system/fstrim.service
+	install -m644 sys-utils/fstrim.timer debian/tmp/lib/systemd/system/fstrim.timer
+endif
+	#
+	# the version in bsdmainutils seems newer.
+	rm -f debian/tmp/usr/bin/look debian/tmp/usr/share/man/man1/look.1
+	rm -f debian/tmp/usr/bin/hexdump debian/tmp/usr/share/man/man1/hexdump.1
+	# and it's less pain to just let bsmainutils deliver col for now.
+	rm -f debian/tmp/usr/bin/col* debian/tmp/usr/share/man/man1/col*.1
+	rm -f debian/tmp/usr/bin/ul debian/tmp/usr/share/man/man1/ul*.1
+	rm -f debian/tmp/usr/bin/cal debian/tmp/usr/share/man/man1/cal.1
+	# remove *.la files
+	rm -f debian/tmp/usr/lib/*/*.la
+
+override_dh_auto_clean:
+	dh_auto_clean
+	# drop arch-overrides, generated in dh_install by dh-exec usage.
+	rm -f debian/uuid-runtime.install.$(DEB_HOST_ARCH) \
+		debian/util-linux.install.$(DEB_HOST_ARCH)
+
+override_dh_install:
+	# generate arch-override, as dh-exec install-rename can only run once.
+	[ -f debian/util-linux.install.$(DEB_HOST_ARCH) ] || \
+		debian/util-linux.install > \
+		debian/util-linux.install.$(DEB_HOST_ARCH)
+	[ -f debian/uuid-runtime.install.$(DEB_HOST_ARCH) ] || \
+		debian/uuid-runtime.install > \
+		debian/uuid-runtime.install.$(DEB_HOST_ARCH)
+	#
+	install -D -p -m644 debian/fdisk-udeb.lintian-overrides \
+		debian/fdisk-udeb/usr/share/lintian/overrides/fdisk-udeb
+	dh_install \
+		-Nfdisk-udeb -Nlibblkid1-udeb \
+		-Nlibfdisk1-udeb -Nlibsmartcols1-udeb -Nlibuuid1-udeb \
+		-Nutil-linux-udeb
+	dh_install --remaining-packages
+	#
+	# Install bash-completions only for binaries we ship
+	for PACKAGE in util-linux uuid-runtime bsdutils mount; do \
+	for BINARY in debian/$$PACKAGE/bin/* debian/$$PACKAGE/sbin/* \
+			debian/$$PACKAGE/usr/bin/* \
+			debian/$$PACKAGE/usr/sbin/* ; \
+	do \
+		BASENAME=$$(basename $$BINARY); \
+		BCDIR=usr/share/bash-completion/completions/; \
+		BCNAME=$$BCDIR/$$BASENAME ; \
+		if [ "$$BASENAME" != '*' ] && [ -e "debian/tmp/$$BCNAME" ]; \
+		then \
+			echo "$$PACKAGE: Installing $$BCNAME"; \
+			[ -d debian/$$PACKAGE/$$BCDIR ] || \
+				mkdir -p debian/$$PACKAGE/$$BCDIR; \
+			mv debian/tmp/$$BCNAME debian/$$PACKAGE/$$BCNAME; \
+		fi; \
+	done; \
+	done
+	#
+	rm -rf debian/*-udeb/usr/share/doc
+	# automatically trim SSD drives
+	if [ -f debian/util-linux/sbin/fstrim ] ; then \
+	    install -D -m 755 debian/fstrim-all.cron debian/util-linux/etc/cron.weekly/fstrim; \
+	fi
+
+override_dh_installman:
+	dh_installman --language=C
+
+override_dh_gencontrol:
+ifeq ($(filter stage1,$(DEB_BUILD_PROFILES)),)
+	dh_gencontrol --package=bsdutils -- -v1:$(DEB_VERSION_UPSTREAM_REVISION)
+endif
+	dh_gencontrol --remaining-packages
+
+override_dh_installinit:
+	# install /etc/init.d/hwclock.sh
+	# - update-rc.d manually handled in maintainers scripts as there
+	#   is special per-arch considerations.
+	dh_installinit --name=hwclock.sh --noscripts --no-start
+	dh_installinit -putil-linux --name=hwclock-save --no-start
+	# install /etc/default/hwclock
+	dh_installinit --name=hwclock --no-start
+	# install uuidd sysvinit script
+	make misc-utils/uuidd.rc
+	ln -s ../misc-utils/uuidd.rc debian/uuid-runtime.uuidd.init
+	dh_installinit --name=uuidd --restart-after-upgrade
+	rm -f debian/uuid-runtime.uuidd.init
+
+override_dh_installpam:
+	dh_installpam --package=util-linux --name=runuser
+	dh_installpam --package=util-linux --name=runuser-l
+
+override_dh_makeshlibs:
+	dh_makeshlibs -N libsmartcols1 -N libblkid1 -N libfdisk1 -N libuuid1
+	dh_makeshlibs -plibsmartcols1 -V \
+		--add-udeb=libsmartcols1-udeb
+	dh_makeshlibs -plibblkid1 -V \
+		--add-udeb=libblkid1-udeb
+	dh_makeshlibs -plibfdisk1 -V \
+		--add-udeb=libfdisk1-udeb
+	dh_makeshlibs -plibuuid1 -V \
+		--add-udeb=libuuid1-udeb
+
+override_dh_fixperms:
+	dh_fixperms -i -s -Xusr/bin/wall -Xbin/mount -Xbin/umount
+
+override_dh_auto_test:
+ifeq ($(DEB_HOST_ARCH_OS), linux)
+	dh_auto_test
+else
+	dh_auto_test || true
+endif
+

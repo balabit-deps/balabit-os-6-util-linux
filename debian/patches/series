@@ -1,0 +1,11 @@
+script-use-empty-slave.patch
+upstream-lscpu-powerpc.patch
+Multiarch-support-in-util-linux-build.patch
+man-page-tweaks-cleanup-my_dev_t.h-ancient-stuff.patch
+Disable-the-fallback-clause-in-hwclock-when-dev-rtc-.patch
+verbose-tests.patch
+Mark-setarch-testcase-as-known-fail.patch
+build-sys-use-PKG_CONFIG.patch
+sulogin-fallback-static-sh.patch
+sulogin-lockedpwd.patch
+git_hybrid_cds.patch

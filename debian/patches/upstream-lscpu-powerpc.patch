@@ -1,0 +1,134 @@
+Description: lscpu: Fix model and model name on Power Systems
+ Backported upstream commits 3ac03fe4d20, 641350fe, and c95e3889
+Bug-Ubuntu: https://launchpad.net/bugs/1563514
+
+Index: util-linux-2.27.1/sys-utils/lscpu.c
+===================================================================
+--- util-linux-2.27.1.orig/sys-utils/lscpu.c
++++ util-linux-2.27.1/sys-utils/lscpu.c
+@@ -187,6 +187,8 @@ struct lscpu_desc {
+ 	char	*family;
+ 	char	*model;
+ 	char	*modelname;
++	char	*revision;  /* alternative for model (ppc) */
++	char	*cpu;       /* alternative for modelname (ppc, sparc) */
+ 	char	*virtflag;	/* virtualization flag (vmx, svm) */
+ 	char	*hypervisor;	/* hypervisor software */
+ 	int	hyper;		/* hypervisor vendor ID */
+@@ -407,20 +409,36 @@ read_basicinfo(struct lscpu_desc *desc,
+ 	char buf[BUFSIZ];
+ 	struct utsname utsbuf;
+ 	size_t setsize;
++	int overwrite_model = 0;
+ 
+ 	/* architecture */
+ 	if (uname(&utsbuf) == -1)
+ 		err(EXIT_FAILURE, _("error: uname failed"));
+ 	desc->arch = xstrdup(utsbuf.machine);
+ 
++	/* Use another records from cpuinfo for PPC, on snapshot follow
++	 * standard behavior.
++	 *
++	 * TODO: use runtime detection to make model overwrite possible on
++	 *       snapshots too.
++	 */
++#if defined(__powerpc__) || defined(__powerpc64__)
++	if (mod->system == SYSTEM_LIVE)
++		overwrite_model = 1;
++#endif
+ 	/* details */
+ 	while (fgets(buf, sizeof(buf), fp) != NULL) {
+ 		if (lookup(buf, "vendor", &desc->vendor)) ;
+ 		else if (lookup(buf, "vendor_id", &desc->vendor)) ;
+ 		else if (lookup(buf, "family", &desc->family)) ;
+ 		else if (lookup(buf, "cpu family", &desc->family)) ;
+-		else if (lookup(buf, "model", &desc->model)) ;
+-		else if (lookup(buf, "model name", &desc->modelname)) ;
++
++		else if (overwrite_model && lookup(buf, "revision", &desc->model)) ;
++		else if (overwrite_model && lookup(buf, "cpu", &desc->modelname)) ;
++
++		else if (!overwrite_model && lookup(buf, "model", &desc->model)) ;
++		else if (!overwrite_model && lookup(buf, "model name", &desc->modelname)) ;
++
+ 		else if (lookup(buf, "stepping", &desc->stepping)) ;
+ 		else if (lookup(buf, "cpu MHz", &desc->mhz)) ;
+ 		else if (lookup(buf, "flags", &desc->flags)) ;		/* x86 */
+@@ -428,6 +446,8 @@ read_basicinfo(struct lscpu_desc *desc,
+ 		else if (lookup(buf, "type", &desc->flags)) ;		/* sparc64 */
+ 		else if (lookup(buf, "bogomips", &desc->bogomips)) ;
+ 		else if (lookup(buf, "bogomips per cpu", &desc->bogomips)) ; /* s390 */
++		else if (lookup(buf, "cpu", &desc->cpu)) ;
++		else if (lookup(buf, "revision", &desc->revision)) ;
+ 		else
+ 			continue;
+ 	}
+@@ -1591,10 +1611,10 @@ print_summary(struct lscpu_desc *desc, s
+ 		print_s(_("Vendor ID:"), desc->vendor);
+ 	if (desc->family)
+ 		print_s(_("CPU family:"), desc->family);
+-	if (desc->model)
+-		print_s(_("Model:"), desc->model);
+-	if (desc->modelname)
+-		print_s(_("Model name:"), desc->modelname);
++	if (desc->model || desc->revision)
++		print_s(_("Model:"), desc->revision ? desc->revision : desc->model);
++	if (desc->modelname || desc->cpu)
++		print_s(_("Model name:"), desc->cpu ? desc->cpu : desc->modelname);
+ 	if (desc->stepping)
+ 		print_s(_("Stepping:"), desc->stepping);
+ 	if (desc->mhz)
+Index: util-linux-2.27.1/tests/expected/lscpu/lscpu-ppc-qemu
+===================================================================
+--- util-linux-2.27.1.orig/tests/expected/lscpu/lscpu-ppc-qemu
++++ util-linux-2.27.1/tests/expected/lscpu/lscpu-ppc-qemu
+@@ -3,7 +3,8 @@ On-line CPU(s) list:   0
+ Thread(s) per core:    1
+ Core(s) per socket:    1
+ Socket(s):             1
+-Model:                 Power Macintosh
++Model:                 3.1 (pvr 0008 0301)
++Model name:            740/750
+ BogoMIPS:              33.25
+ L1d cache:             unknown size
+ L1i cache:             unknown size
+Index: util-linux-2.27.1/tests/expected/lscpu/lscpu-ppc64-POWER7
+===================================================================
+--- util-linux-2.27.1.orig/tests/expected/lscpu/lscpu-ppc64-POWER7
++++ util-linux-2.27.1/tests/expected/lscpu/lscpu-ppc64-POWER7
+@@ -4,7 +4,8 @@ Thread(s) per core:    4
+ Core(s) per socket:    1
+ Socket(s):             4
+ NUMA node(s):          1
+-Model:                 IBM,8233-E8B
++Model:                 2.1 (pvr 003f 0201)
++Model name:            POWER7 (architected), altivec supported
+ L1d cache:             32K
+ L1i cache:             32K
+ NUMA node0 CPU(s):     0-15
+Index: util-linux-2.27.1/tests/expected/lscpu/lscpu-ppc64-POWER7-64cpu
+===================================================================
+--- util-linux-2.27.1.orig/tests/expected/lscpu/lscpu-ppc64-POWER7-64cpu
++++ util-linux-2.27.1/tests/expected/lscpu/lscpu-ppc64-POWER7-64cpu
+@@ -4,7 +4,8 @@ Thread(s) per core:    4
+ Core(s) per socket:    1
+ Socket(s):             16
+ NUMA node(s):          2
+-Model:                 IBM,8231-E2B
++Model:                 2.1 (pvr 003f 0201)
++Model name:            POWER7 (architected), altivec supported
+ Hypervisor vendor:     pHyp
+ Virtualization type:   para
+ L1d cache:             32K
+Index: util-linux-2.27.1/tests/expected/lscpu/lscpu-sparc64
+===================================================================
+--- util-linux-2.27.1.orig/tests/expected/lscpu/lscpu-sparc64
++++ util-linux-2.27.1/tests/expected/lscpu/lscpu-sparc64
+@@ -4,6 +4,7 @@ On-line CPU(s) list:   6,7,10,11,14,15
+ Thread(s) per core:    1
+ Core(s) per socket:    1
+ Socket(s):             6
++Model name:            TI UltraSparc II  (BlackBird)
+ Flags:                 sun4u
+ 
+ # The following is the parsable format, which can be fed to other

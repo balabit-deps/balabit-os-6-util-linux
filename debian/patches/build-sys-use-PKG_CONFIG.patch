@@ -1,0 +1,26 @@
+From: Karel Zak <kzak@redhat.com>
+Date: Tue, 16 Feb 2016 10:27:56 +0100
+Subject: build-sys: use $PKG_CONFIG
+
+Reported-by: Helmut Grohne <helmut@subdivi.de>
+References: https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=811546
+Signed-off-by: Karel Zak <kzak@redhat.com>
+---
+ m4/ul.m4 | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/m4/ul.m4 b/m4/ul.m4
+index 9a0f34b..7646c1a 100644
+--- a/m4/ul.m4
++++ b/m4/ul.m4
+@@ -30,8 +30,8 @@ dnl
+ dnl Calls pkg-config --static
+ dnl
+ AC_DEFUN([UL_PKG_STATIC], [
+-  if AC_RUN_LOG([pkg-config --exists --print-errors "$2"]); then
+-    $1=`pkg-config --libs --static "$2"`
++  if AC_RUN_LOG([$PKG_CONFIG --exists --print-errors "$2"]); then
++    $1=`$PKG_CONFIG --libs --static "$2"`
+   else
+     AC_MSG_ERROR([pkg-config description of $2, needed for static build, is not available])
+   fi

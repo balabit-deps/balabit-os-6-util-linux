@@ -1,0 +1,27 @@
+From: Andreas Henriksson <andreas@fatal.se>
+Date: Tue, 26 Jan 2016 15:42:35 +0100
+Subject: Mark setarch testcase as known-fail
+
+Apparently glibc does not support 2.6 personality on some architectures
+when built to require newer kernels (e.g. >= 3.2).
+
+Closes: #812696
+---
+ tests/ts/misc/setarch | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/tests/ts/misc/setarch b/tests/ts/misc/setarch
+index 9120509..f375178 100755
+--- a/tests/ts/misc/setarch
++++ b/tests/ts/misc/setarch
+@@ -20,6 +20,10 @@ ts_init "$*"
+ 
+ ts_check_test_command "$TS_CMD_SETARCH"
+ 
++# See https://bugs.debian.org/806911 for why --uname-2.6 will fail
++# on some architectures.
++TS_KNOWN_FAIL="yes"
++
+ $TS_CMD_SETARCH $(uname -m) -vRFZLXBIST3 --uname-2.6 echo "success" >$TS_OUTPUT 2>&1
+ 
+ ts_finalize
