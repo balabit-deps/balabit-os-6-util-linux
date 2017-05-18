@@ -1,3 +1,17 @@
+util-linux (2.27.1-6ubuntu3.3) xenial; urgency=medium
+
+  * Cherrypick upstream fix to prevent lscpu crash on arm64 by
+    accessing DMI in sysfs instead of /dev/mem. LP: #1674258
+
+ -- Ike Panhc <ike.pan@canonical.com>  Thu, 18 May 2017 10:49:34 +0800
+
+util-linux (2.27.1-6ubuntu3.2) xenial; urgency=medium
+
+  * Cherrypick upstream fix to prevent segfaults in getopt by ensuring
+    that options array is correctly terminated. LP: #1577460
+
+ -- Dimitri John Ledkov <xnox@ubuntu.com>  Fri, 16 Dec 2016 14:49:06 +0000
+
 util-linux (2.27.1-6ubuntu3.1) xenial; urgency=medium
 
   * debian/patches/git_hybrid_cds.patch:

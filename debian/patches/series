@@ -9,3 +9,5 @@ build-sys-use-PKG_CONFIG.patch
 sulogin-fallback-static-sh.patch
 sulogin-lockedpwd.patch
 git_hybrid_cds.patch
+e1164591f7927402af8d73d340e75dbfeb06a288.patch
+lscpu-use-sysfs-for-tables-access-if-available.patch
