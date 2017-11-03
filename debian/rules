@@ -11,6 +11,7 @@ ifeq ($(DEB_HOST_ARCH_OS),linux)
 CONFOPTS += --enable-raw
 CONFOPTS += --with-selinux
 CONFOPTS += --enable-partx
+CONFOPTS += --with-audit
 ifneq ($(filter stage1,$(DEB_BUILD_PROFILES)),)
 	CONFOPTS += --without-systemd --without-udev
 else

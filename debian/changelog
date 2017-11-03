@@ -1,3 +1,11 @@
+util-linux (2.27.1-6ubuntu3.4) xenial; urgency=medium
+
+  * Add --with-audit to rules file and libaudit-dev to build depenedencies.
+    The hwclock needs audit defined in order to create audit records when
+    time is changed. (LP: #1722313)
+
+ -- Joy Latten <joy.latten@canonical.com>  Fri, 03 Nov 2017 17:46:07 -0500
+
 util-linux (2.27.1-6ubuntu3.3) xenial; urgency=medium
 
   * Cherrypick upstream fix to prevent lscpu crash on arm64 by
