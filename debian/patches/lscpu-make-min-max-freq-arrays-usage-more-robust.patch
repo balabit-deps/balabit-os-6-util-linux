@@ -1,0 +1,51 @@
+From 0145d84a381fc2fcd7d37e0dbf3d9dff69609ecd Mon Sep 17 00:00:00 2001
+From: Karel Zak <kzak@redhat.com>
+Date: Thu, 1 Jun 2017 12:15:23 +0200
+Subject: [PATCH] lscpu: make min/max freq arrays usage more robust
+
+The array members may be NULL on some architectures (e.g. AMD). Let's
+be paranoid and check for the NULL independently on present/online
+masks.
+
+Addresses: https://bugzilla.redhat.com/show_bug.cgi?id=1457744
+Signed-off-by: Karel Zak <kzak@redhat.com>
+---
+ sys-utils/lscpu.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+--- a/sys-utils/lscpu.c
++++ b/sys-utils/lscpu.c
+@@ -1037,7 +1037,8 @@ cpu_max_mhz(struct lscpu_desc *desc, cha
+ 
+ 	if (desc->present) {
+ 		for (i = 1; i < desc->ncpuspos; i++) {
+-			if (CPU_ISSET(real_cpu_num(desc, i), desc->present)) {
++			if (CPU_ISSET(real_cpu_num(desc, i), desc->present)
++			    && desc->maxmhz[i]) {
+ 				float freq = atof(desc->maxmhz[i]);
+ 
+ 				if (freq > cpu_freq)
+@@ -1058,7 +1059,8 @@ cpu_min_mhz(struct lscpu_desc *desc, cha
+ 
+ 	if (desc->present) {
+ 		for (i = 1; i < desc->ncpuspos; i++) {
+-			if (CPU_ISSET(real_cpu_num(desc, i), desc->present)) {
++			if (CPU_ISSET(real_cpu_num(desc, i), desc->present)
++			    && desc->minmhz[i]) {
+ 				float freq = atof(desc->minmhz[i]);
+ 
+ 				if (freq < cpu_freq)
+@@ -1335,11 +1337,11 @@ get_cell_data(struct lscpu_desc *desc, i
+ 				 is_cpu_online(desc, cpu) ? _("yes") : _("no"));
+ 		break;
+ 	case COL_MAXMHZ:
+-		if (desc->maxmhz)
++		if (desc->maxmhz && desc->maxmhz[idx])
+ 			xstrncpy(buf, desc->maxmhz[idx], bufsz);
+ 		break;
+ 	case COL_MINMHZ:
+-		if (desc->minmhz)
++		if (desc->minmhz && desc->minmhz[idx])
+ 			xstrncpy(buf, desc->minmhz[idx], bufsz);
+ 		break;
+ 	}
