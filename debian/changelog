@@ -1,3 +1,12 @@
+util-linux (2.27.1-6ubuntu3.7) xenial; urgency=medium
+
+  * d/patches/lscpu-cleanup-DMI-detection-return-codes.patch:
+    Cherry pick upstream patch to fix correctly identifying 
+    virtualization type.
+    LP: #1764628
+
+ -- Manoj Iyer <manoj.iyer@canonical.com>  Tue, 02 Apr 2019 17:20:29 -0500
+
 util-linux (2.27.1-6ubuntu3.6) xenial; urgency=medium
 
   * d/patches/lscpu-make-min-max-freq-arrays-usage-more-robust.patch,
