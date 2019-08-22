@@ -1,3 +1,14 @@
+util-linux (2.27.1-6ubuntu3.8) xenial; urgency=medium
+
+  * d/p/prevent-fstrim-inside-container.patch:
+    - Prevent fstrim to run inside a container environment.
+    (LP: #1589289)
+
+  * d/fstrim-all.cron: Prevent cron.weekly to fstrim if inside a
+    container.
+
+ -- Eric Desrochers <eric.desrochers@canonical.com>  Thu, 22 Aug 2019 23:56:21 +0000
+
 util-linux (2.27.1-6ubuntu3.7) xenial; urgency=medium
 
   * d/patches/lscpu-cleanup-DMI-detection-return-codes.patch:

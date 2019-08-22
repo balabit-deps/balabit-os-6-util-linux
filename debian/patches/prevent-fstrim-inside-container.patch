@@ -1,0 +1,43 @@
+Description: fstrim shouldn't run inside a container
+ Container type implies the following products:
+ openvz	OpenVZ/Virtuozzo
+ lxc	Linux container implementation by LXC
+ lxc-libvirt	Linux container implementation by libvirt
+ systemd-nspawn	systemd's minimal container implementation, see systemd-nspawn(1)
+ docker	Docker container manager
+ podman	Podman container manager
+ rkt	rkt app container runtime
+ wsl	Windows Subsystem for Linux
+
+ References:
+ https://www.freedesktop.org/software/systemd/man/systemd.unit.html
+ https://www.freedesktop.org/software/systemd/man/systemd-detect-virt.html#
+
+ Fix: #840
+Author: Eric Desrochers <eric.desrochers@canonical.com>
+Origin: upstream, https://github.com/karelzak/util-linux/commit/0280d31a2bd6292acd9a4b86d0f6b5feb275a618
+Bug: https://github.com/karelzak/util-linux/issues/840
+Bug-Ubuntu: https://launchpad.net/bugs/1589289
+Index: util-linux-2.27.1/sys-utils/fstrim.service.in
+===================================================================
+--- util-linux-2.27.1.orig/sys-utils/fstrim.service.in
++++ util-linux-2.27.1/sys-utils/fstrim.service.in
+@@ -1,5 +1,6 @@
+ [Unit]
+ Description=Discard unused blocks
++ConditionVirtualization=!container
+ 
+ [Service]
+ Type=oneshot
+Index: util-linux-2.27.1/sys-utils/fstrim.timer
+===================================================================
+--- util-linux-2.27.1.orig/sys-utils/fstrim.timer
++++ util-linux-2.27.1/sys-utils/fstrim.timer
+@@ -1,6 +1,7 @@
+ [Unit]
+ Description=Discard unused blocks once a week
+ Documentation=man:fstrim
++ConditionVirtualization=!container
+ 
+ [Timer]
+ OnCalendar=weekly

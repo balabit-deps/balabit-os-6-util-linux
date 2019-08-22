@@ -16,3 +16,4 @@ lscpu-make-cpu_-max-min-_mhz-usage-more-elegant.patch
 lscpu-make-min-max-freq-arrays-usage-more-robust.patch
 Avoid-crash-in-min-max-caculation-when-cpu-0-being-o.patch
 lscpu-cleanup-DMI-detection-return-codes.patch
+prevent-fstrim-inside-container.patch
