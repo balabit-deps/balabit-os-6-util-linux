@@ -1,3 +1,12 @@
+util-linux (2.27.1-6ubuntu3.9) xenial; urgency=medium
+
+  * d/p/libblkid-nilfs2-add-length-check-before-crc32.patch:
+    Fix misdetection/false-positive of nilfs2 filesystem on
+    device with magic bytes coincidentally on end of device
+    and bad checksum ignored by udev blkid. (LP: #1842437)
+
+ -- Mauricio Faria de Oliveira <mfo@canonical.com>  Tue, 03 Sep 2019 11:32:50 -0300
+
 util-linux (2.27.1-6ubuntu3.8) xenial; urgency=medium
 
   * d/p/prevent-fstrim-inside-container.patch:

@@ -18,10 +18,8 @@ Author: Eric Desrochers <eric.desrochers@canonical.com>
 Origin: upstream, https://github.com/karelzak/util-linux/commit/0280d31a2bd6292acd9a4b86d0f6b5feb275a618
 Bug: https://github.com/karelzak/util-linux/issues/840
 Bug-Ubuntu: https://launchpad.net/bugs/1589289
-Index: util-linux-2.27.1/sys-utils/fstrim.service.in
-===================================================================
---- util-linux-2.27.1.orig/sys-utils/fstrim.service.in
-+++ util-linux-2.27.1/sys-utils/fstrim.service.in
+--- a/sys-utils/fstrim.service.in
++++ b/sys-utils/fstrim.service.in
 @@ -1,5 +1,6 @@
  [Unit]
  Description=Discard unused blocks
@@ -29,10 +27,8 @@ Index: util-linux-2.27.1/sys-utils/fstrim.service.in
  
  [Service]
  Type=oneshot
-Index: util-linux-2.27.1/sys-utils/fstrim.timer
-===================================================================
---- util-linux-2.27.1.orig/sys-utils/fstrim.timer
-+++ util-linux-2.27.1/sys-utils/fstrim.timer
+--- a/sys-utils/fstrim.timer
++++ b/sys-utils/fstrim.timer
 @@ -1,6 +1,7 @@
  [Unit]
  Description=Discard unused blocks once a week
