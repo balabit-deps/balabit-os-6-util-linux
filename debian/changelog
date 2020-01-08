@@ -1,3 +1,11 @@
+util-linux (2.27.1-6ubuntu3.10) xenial; urgency=medium
+
+  * d/p/libblkid-xfs-log-check-for-reg-xfs-on-more-sectors.patch:
+    fix ambivalent detection of bcache and xfs_external_log
+    due to regular xfs on bcache backing device. (LP: #1858802)
+
+ -- Mauricio Faria de Oliveira <mfo@canonical.com>  Wed, 08 Jan 2020 11:00:18 -0300
+
 util-linux (2.27.1-6ubuntu3.9) xenial; urgency=medium
 
   * d/p/libblkid-nilfs2-add-length-check-before-crc32.patch:

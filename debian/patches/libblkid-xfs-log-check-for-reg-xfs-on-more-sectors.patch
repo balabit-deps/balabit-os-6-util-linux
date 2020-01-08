@@ -1,0 +1,116 @@
+Origin: upstream, https://git.kernel.org/pub/scm/utils/util-linux/util-linux.git/commit/?id=d756af7d640c51ce8d1414607bd3f17eeecf2424
+Bug-Ubuntu: https://bugs.launchpad.net/bugs/1858802
+Bug-Debian: https://bugs.debian.org/948444
+From d756af7d640c51ce8d1414607bd3f17eeecf2424 Mon Sep 17 00:00:00 2001
+From: Mauricio Faria de Oliveira <mfo@canonical.com>
+Date: Tue, 7 Jan 2020 18:53:51 -0300
+Subject: [PATCH] libblkid: (xfs) external log: check for regular xfs on more
+ sectors
+
+The xfs external log probe only checks for regular xfs on sector zero,
+but then checks for valid log record headers on all first 512 sectors.
+
+This can incorrectly detect an xfs external log if a regular xfs (i.e.
+with internal log) is shifted by up to 512 sectors; it may happen with
+bcache and LVM1 for example, as the regular xfs is found later in disk.
+
+This results in ambivalent filesystem detection, thus no UUID for udev.
+
+Fix this problem by checking for regular xfs on all sectors considered
+by the xfs external log probe.
+
+Test-case with bcache:
+---
+
+    $ IMG=bcache-backing-device.img
+    $ dd if=/dev/zero of=$IMG bs=1G count=0 seek=1
+    $ DEV=$(sudo losetup --find --show $IMG)
+
+    $ sudo make-bcache -B $DEV
+
+    $ sudo mkfs.xfs -d agsize=16m -l agnum=0 -f /dev/bcache0
+
+    $ sudo LD_LIBRARY_PATH=./.libs ./wipefs /dev/bcache0
+    DEVICE  OFFSET TYPE UUID                                 LABEL
+    bcache0 0x0    xfs  9f6dfa9d-4488-46f7-906b-dcfc96027cfe
+
+    $ echo 1 | sudo tee /sys/block/bcache0/bcache/stop
+
+    $ sudo hexdump -C $DEV | grep -m2 -e XFSB -e 'fe ed ba be'
+    00002000  58 46 53 42 00 00 10 00  00 00 00 00 00 03 f0 00  |XFSB............|
+    00007000  fe ed ba be 00 00 00 01  00 00 00 02 00 00 00 14  |................|
+
+  Without patch:
+
+    $ sudo LD_LIBRARY_PATH=./.libs ./wipefs $DEV
+    DEVICE OFFSET TYPE             UUID                                 LABEL
+    loop0  0x1018 bcache           23da3ba9-2467-453d-b020-06f02c947190
+    loop0  0x7000 xfs_external_log
+
+  With patch:
+
+    $ sudo LD_LIBRARY_PATH=./.libs ./wipefs $DEV
+    DEVICE OFFSET TYPE             UUID                                 LABEL
+    loop0  0x1018 bcache           23da3ba9-2467-453d-b020-06f02c947190
+
+Test-case with LVM1:
+---
+
+    $ IMG=lvm-backing-device.img
+    $ dd if=/dev/zero of=$IMG bs=1G count=0 seek=1
+    $ DEV=$(sudo losetup --find --show $IMG)
+
+    $ sudo lvm pvcreate -M1 $DEV
+    $ sudo lvm vgcreate -M1 lvm-vg-test $DEV
+    $ sudo lvm lvcreate  lvm-vg-test --name lvm-lv-test --extents 100%VG
+
+    $ sudo mkfs.xfs -d agsize=16m -l agnum=0 -f /dev/mapper/lvm--vg--test-lvm--lv--test
+
+    $ sudo LD_LIBRARY_PATH=./.libs ./wipefs /dev/mapper/lvm--vg--test-lvm--lv--test
+    DEVICE                      OFFSET TYPE UUID                                 LABEL
+    lvm--vg--test-lvm--lv--test 0x0    xfs  451ba725-8394-4ebe-9b49-fc5f4a99667f
+
+    $ sudo lvchange -an lvm-vg-test
+
+    $ sudo hexdump -C $DEV | grep -m2 -e XFSB -e 'fe ed ba be'
+    00020000  58 46 53 42 00 00 10 00  00 00 00 00 00 03 f0 00  |XFSB............|
+    00025000  fe ed ba be 00 00 00 01  00 00 00 02 00 00 00 14  |................|
+
+  Without patch:
+
+    $ sudo LD_LIBRARY_PATH=./.libs ./wipefs $DEV
+    DEVICE OFFSET  TYPE             UUID                                   LABEL
+    loop0  0x0     LVM1_member      agUhNT-9f42-Z30B-Z4Ew-skWd-3h3a-tWMY0A
+    loop0  0x25000 xfs_external_log
+
+  With patch:
+
+    $ sudo LD_LIBRARY_PATH=./.libs ./wipefs $DEV
+    DEVICE OFFSET TYPE        UUID                                   LABEL
+    loop0  0x0    LVM1_member agUhNT-9f42-Z30B-Z4Ew-skWd-3h3a-tWMY0A
+
+Signed-off-by: Mauricio Faria de Oliveira <mfo@canonical.com>
+---
+ libblkid/src/superblocks/xfs.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+Index: util-linux-2.27.1/libblkid/src/superblocks/xfs.c
+===================================================================
+--- util-linux-2.27.1.orig/libblkid/src/superblocks/xfs.c
++++ util-linux-2.27.1/libblkid/src/superblocks/xfs.c
+@@ -251,11 +251,12 @@ static int probe_xfs_log(blkid_probe pr,
+ 	if (!buf)
+ 		return errno ? -errno : 1;
+ 
+-	if (memcmp(buf, "XFSB", 4) == 0)
+-		return 1;			/* this is regular XFS, ignore */
+-
+ 	/* check the first 512 512-byte sectors */
+ 	for (i = 0; i < 512; i++) {
++		/* this is regular XFS (maybe with some sectors shift), ignore */
++		if (memcmp(&buf[i*512], "XFSB", 4) == 0)
++			return 1;
++
+ 		rhead = (struct xlog_rec_header *)&buf[i*512];
+ 
+ 		if (xlog_valid_rec_header(rhead)) {
